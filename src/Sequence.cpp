@@ -202,7 +202,7 @@ void Sequence::ReadFramesLoop() {
                 if (m_doneRead || file == nullptr) {
                     // memset(fd->data, 0, maxChanToRead);
                 } else {
-                    fd = m_seqFile->getFrame(frame);
+                    fd = file->getFrame(frame);
                 }
                 long long unlock = GetTimeMS();
                 readlock.unlock();
@@ -275,6 +275,7 @@ int Sequence::OpenSequenceFile(const std::string& filename, int startFrame, int 
     if (IsSequenceRunning())
         CloseSequenceFile();
 
+    std::unique_lock<std::mutex> readLock(readFileLock);
     std::unique_lock<std::mutex> lock(frameCacheLock);
     if (m_seqFile) {
         std::string fn = m_seqFile->getFilename();
@@ -285,6 +286,7 @@ int Sequence::OpenSequenceFile(const std::string& filename, int startFrame, int 
         effectsOff.clear();
         checkForReplacementFile(fn);
     }
+    readLock.unlock();
 
     m_seqStarting = 2;
     m_doneRead = false;
@@ -382,14 +384,15 @@ int Sequence::OpenSequenceFile(const std::string& filename, int startFrame, int 
     lock.lock();
     m_seqFile = seqFile;
     lock.unlock();
-    m_seqStarting = 1; // beyond header, read loop can start reading frames
-    frameLoadSignal.notify_all();
     m_seqPaused = 0;
     m_seqSingleStep = 0;
     m_seqSingleStepBack = 0;
     m_dataProcessed = false;
     ProcessVariableHeaders();
     ReadSequenceData(true);
+    // beyond header, read loop can start reading frames
+    m_seqStarting = 1;
+    frameLoadSignal.notify_all();
     seqLock.unlock();
     StartChannelOutputThread();
 
