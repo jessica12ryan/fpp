@@ -104,8 +104,8 @@ void CommandManager::Init() {
     addCategorizedCommand(new TogglePlaylistCommand(), "Playlist", 0);
     addCategorizedCommand(new StartPlaylistAtCommand(), "Playlist", 1);
     addCategorizedCommand(new StartPlaylistAtRandomCommand(), "Playlist", 1);
-    addCategorizedCommand(new InsertPlaylistCommand(), "Playlist", 1);
-    addCategorizedCommand(new InsertPlaylistImmediate(), "Playlist", 1);
+    addCategorizedCommand(new InsertPlaylistCommand(), "Playlist", 0);
+    addCategorizedCommand(new InsertPlaylistImmediate(), "Playlist", 0);
     addCategorizedCommand(new InsertRandomItemFromPlaylistCommand(), "Playlist", 1);
 #ifdef HAS_GSTREAMER
     addCategorizedCommand(new PlayMediaCommand(), "Media", 0);
