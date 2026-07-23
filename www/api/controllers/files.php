@@ -588,6 +588,7 @@ function GetFile()
  */
 function GetFileImpl($dir, $filename, $lines, $play, $attach)
 {
+    global $SUDO;
     $isImage = 0;
     $isLog = 0;
     if ($dir == 'Images') {
@@ -652,13 +653,17 @@ function GetFileImpl($dir, $filename, $lines, $play, $attach)
         header('Content-disposition: attachment;filename="' . $filename . '"');
     }
 
-    ob_clean();
+    if (ob_get_level()) {
+        ob_end_clean();
+    }
     flush();
     if ($lines == -1) {
-        readfile($dir . '/' . $filename);
+        header('Content-Length: ' . real_filesize($dir . '/' . $filename));
+        passthru($SUDO . " cat " . escapeshellarg($dir . '/' . $filename));
     } else {
-        passthru('tail -' . $lines . ' ' . $dir . '/' . $filename);
+        passthru($SUDO . ' tail -' . $lines . ' ' . escapeshellarg($dir . '/' . $filename));
     }
+    exit;
 }
 
 /**
