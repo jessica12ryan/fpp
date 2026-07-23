@@ -3559,14 +3559,23 @@ function EditPlaylistEntry () {
 				}
 			}
 		} else {
-			if ($(row).find('.field_' + a.name).length)
-				$('.arg_' + a.name)
-					.val(
-						$(row)
-							.find('.field_' + a.name)
-							.text()
-					)
-					.trigger('change');
+			if ($(row).find('.field_' + a.name).length) {
+				var savedVal = $(row)
+					.find('.field_' + a.name)
+					.text();
+				$('.arg_' + a.name).val(savedVal).trigger('change');
+				// .arg_command's options are filtered by LoadCommandList to the
+				// current UI level; if the saved command is Advanced/Developer
+				// tier and we're viewing in a lower UI level, the option won't
+				// exist yet and .val() silently leaves nothing selected. Add it
+				// back so the saved selection is preserved instead of dropping.
+				if (a.name == 'command' && savedVal !== '' && $('.arg_command').val() !== savedVal) {
+					$('.arg_command').append(
+						"<option value='" + savedVal + "'>" + savedVal + '</option>'
+					);
+					$('.arg_command').val(savedVal).trigger('change');
+				}
+			}
 		}
 	}
 
@@ -8235,7 +8244,7 @@ function PopulateCommandListCache () {
 	});
 }
 
-function LoadCommandList (commandSelect) {
+function LoadCommandList (commandSelect, currentValue) {
 	if (typeof commandSelect === 'string') {
 		commandSelect = $('#' + commandSelect);
 	}
@@ -8243,9 +8252,32 @@ function LoadCommandList (commandSelect) {
 		PopulateCommandListCache();
 	}
 
+	var uiLevel = (typeof settings !== 'undefined' && settings['uiLevel']) ? parseInt(settings['uiLevel']) : 0;
+	var groups = {};
 	$.each(commandList, function (key, val) {
-		option = "<option value='" + val['name'] + "'>" + val['name'] + '</option>';
-		commandSelect.append(option);
+		var level = val['level'] || 0;
+		// Always show the currently-selected command even if its level is above
+		// the viewer's UI level, so switching to a lower UI level never hides or
+		// corrupts an already-saved selection - it just stops offering it as a
+		// choice for anything new. Mirrors common.php's optionsLevel handling.
+		if (level > uiLevel && val['name'] !== currentValue) {
+			return;
+		}
+		var cat = val['category'] || 'Other';
+		if (!groups[cat]) {
+			groups[cat] = [];
+		}
+		groups[cat].push(val['name']);
+	});
+
+	var cats = Object.keys(groups).sort();
+
+	$.each(cats, function (i, cat) {
+		var og = $("<optgroup label='" + cat + "'></optgroup>");
+		$.each(groups[cat], function (i, name) {
+			og.append("<option value='" + name + "'>" + name + '</option>');
+		});
+		commandSelect.append(og);
 	});
 }
 
@@ -9603,6 +9635,15 @@ function GetCommandTemplateData (row) {
 function FillInCommandTemplate (row, data) {
 	if (row.find('.cmdTmplName').val() == '' && data.hasOwnProperty('name')) {
 		row.find('.cmdTmplName').val(data.name);
+	}
+
+	// The row template ships with an empty .cmdTmplCommand select; populate it
+	// per-row here (rather than once, statically, in PHP) so the currently-set
+	// command for THIS row can be passed through as the "always show" exception
+	// to UI-level filtering.
+	var $cmdSelect = row.find('.cmdTmplCommand');
+	if ($cmdSelect.find('option').length === 0) {
+		LoadCommandList($cmdSelect, data.command);
 	}
 
 	// Check if command exists in the command list

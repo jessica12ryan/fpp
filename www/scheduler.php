@@ -12,17 +12,6 @@ error_reporting(E_ALL);
     require_once 'common.php';
 
     include 'common/menuHead.inc';
-
-    $commandOptions = "";
-    $commandsJSON = file_get_contents('http://localhost:32322/commands');
-    $data = json_decode($commandsJSON, true);
-    foreach ($data as $cmd) {
-        // Disallow Start Playlist FPP command to be scheduled.  Instead schedule a playlist
-        // It only half works, and provides less functionality than scheduling a playlist directly on the same screen.
-        if ($cmd['name'] !== 'Start Playlist') {
-            $commandOptions .= "<option value='" . $cmd['name'] . "'>" . $cmd['name'] . "</option>";
-        }
-    }
     ?>
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
     <link rel="stylesheet" type="text/css" href="css/jquery.timepicker.css">
@@ -49,6 +38,16 @@ error_reporting(E_ALL);
         });
     </script>
     <script>
+        // Populates a schedule row's Command dropdown via the shared
+        // FillInCommandTemplate/LoadCommandList path (categorized + UI-level
+        // filtered), then removes "Start Playlist" from THIS row only --
+        // scheduling it only half-works and provides less functionality than
+        // scheduling a playlist directly on this same page.
+        function FillInScheduleCommandTemplate(row, data) {
+            FillInCommandTemplate(row, data);
+            row.find(".cmdTmplCommand option[value='Start Playlist']").remove();
+        }
+
         function AddScheduleEntry(data = {}) {
             var newEntry = 0;
             if (!data.hasOwnProperty('enabled')) {
@@ -149,7 +148,7 @@ error_reporting(E_ALL);
                 if (data.repeat == 0)
                     row.find('.schEndTime').hide();
 
-                FillInCommandTemplate(row, data);
+                FillInScheduleCommandTemplate(row, data);
             }
 
             if (data.startTime == '25:00:00')
@@ -477,7 +476,7 @@ error_reporting(E_ALL);
                     data.args = [];
                     data.multisyncCommand = false;
                     data.multisyncHosts = '';
-                    FillInCommandTemplate(row, data);
+                    FillInScheduleCommandTemplate(row, data);
                 }
             }
         }
@@ -1214,7 +1213,7 @@ error_reporting(E_ALL);
                                     </td>
                                     <td class='schOptionsCommand' colspan='2'>
                                         <select class='cmdTmplCommand'
-                                            onChange='EditCommandTemplate($(this).parent().parent()); ValidateScheduleRow($(this).parent().parent());'><? echo $commandOptions; ?></select>
+                                            onChange='EditCommandTemplate($(this).parent().parent()); ValidateScheduleRow($(this).parent().parent());'></select>
                                         <img class='cmdTmplTooltipIcon' title='' data-bs-html='true'
                                             data-bs-toggle='tooltip' src='images/redesign/help-icon.svg' width=22
                                             height=22>

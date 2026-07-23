@@ -252,7 +252,7 @@ int MosquittoClient::Init(const std::string& username, const std::string& passwo
         return 0;
     }
 
-    CommandManager::INSTANCE.addCommand(new MQTTCommand());
+    CommandManager::INSTANCE.addCategorizedCommand(new MQTTCommand(), "Outputs", 1);
 
     return 1;
 }

@@ -1360,11 +1360,11 @@ void PixelOverlayManager::RegisterCommands() {
     if (models.empty()) {
         return;
     }
-    CommandManager::INSTANCE.addCommand(new EnableOverlayCommand(this));
-    CommandManager::INSTANCE.addCommand(new FillOverlayCommand(this));
-    CommandManager::INSTANCE.addCommand(new TextOverlayCommand(this));
-    CommandManager::INSTANCE.addCommand(new ClearOverlayCommand(this));
-    CommandManager::INSTANCE.addCommand(new ApplyEffectOverlayCommand(this));
+    CommandManager::INSTANCE.addCategorizedCommand(new EnableOverlayCommand(this), "Pixel Overlay", 1);
+    CommandManager::INSTANCE.addCategorizedCommand(new FillOverlayCommand(this), "Pixel Overlay", 1);
+    CommandManager::INSTANCE.addCategorizedCommand(new TextOverlayCommand(this), "Pixel Overlay", 1);
+    CommandManager::INSTANCE.addCategorizedCommand(new ClearOverlayCommand(this), "Pixel Overlay", 1);
+    CommandManager::INSTANCE.addCategorizedCommand(new ApplyEffectOverlayCommand(this), "Pixel Overlay", 1);
 }
 
 void PixelOverlayManager::addAutoOverlayModel(const std::string& name,

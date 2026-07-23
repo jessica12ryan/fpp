@@ -90,5 +90,5 @@ public:
 };
 
 void LocaleHolder::RegisterCommands() {
-    CommandManager::INSTANCE.addCommand(new ClearLocaleCacheCommand());
+    CommandManager::INSTANCE.addCategorizedCommand(new ClearLocaleCacheCommand(), "System", 3);
 }

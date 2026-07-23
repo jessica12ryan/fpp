@@ -1394,7 +1394,7 @@
           "commands"
         ],
         "summary": "commands",
-        "description": "List all available commands and their argument descriptions.",
+        "description": "List all available commands and their argument descriptions. Each entry also carries \"category\" (e.g. \"Playlist\", \"Media\", \"Plugins\") and \"level\" (0 Basic / 1 Advanced / 3 Developer) for UI grouping and filtering.",
         "responses": {
           "200": {
             "description": "Array of command descriptions."
@@ -1418,7 +1418,7 @@
           "commands"
         ],
         "summary": "commands/{command}",
-        "description": "Get the description of a single command by name.",
+        "description": "Get the description of a single command by name. Includes the same \"category\"/\"level\" fields as the list route.",
         "responses": {
           "200": {
             "description": "The command description."
@@ -2993,6 +2993,61 @@
         "responses": {
           "200": {
             "description": "Schedule updated."
+          }
+        }
+      }
+    },
+    "/api/fppd/schedule/range": {
+      "get": {
+        "tags": [
+          "fppd"
+        ],
+        "summary": "Expand the schedule over an arbitrary date range.",
+        "description": "Unlike `/api/fppd/schedule`, which reports only the rolling window fppd has actually scheduled out, this expands the configured schedule rules across any requested range so past and future dates can be previewed. Occurrences are advisory - they describe what the schedule says should happen, not what fppd has committed to running.",
+        "parameters": [
+          {
+            "name": "start",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            },
+            "description": "Range start as epoch seconds."
+          },
+          {
+            "name": "end",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            },
+            "description": "Range end as epoch seconds. Must be after `start` and no more than 420 days later."
+          },
+          {
+            "name": "includeDisabled",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            },
+            "description": "Set to `1` to also expand disabled schedule entries."
+          },
+          {
+            "name": "summary",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            },
+            "description": "Set to `1` to collapse to one item per schedule entry per day, each carrying a `count` of that day's occurrences. Intended for month and other coarse views, where a repeating entry would otherwise return thousands of items."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Object with a `schedule` member containing `entries`, `items`, `rangeStart` and `rangeEnd`."
+          },
+          "400": {
+            "description": "Missing, malformed, or excessively large range."
           }
         }
       }
@@ -6651,7 +6706,6 @@
                   "author": "Chris Pinkham (CaptainMurdoch)",
                   "srcURL": "https://github.com/cpinkham/fpp-matrixtools.git",
                   "updatesAvailable": 0,
-                  "hasIcon": true,
                   "versions": [
                     {
                       "minFPPVersion": 0,

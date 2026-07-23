@@ -224,8 +224,8 @@ void ChannelTester::StopTest() {
 }
 
 void ChannelTester::RegisterCommands() {
-    CommandManager::INSTANCE.addCommand(new StartTestingCommand());
-    CommandManager::INSTANCE.addCommand(new StopTestingCommand());
+    CommandManager::INSTANCE.addCategorizedCommand(new StartTestingCommand(), "Outputs", 1);
+    CommandManager::INSTANCE.addCategorizedCommand(new StopTestingCommand(), "Outputs", 1);
 }
 // --------------------------------------------------------------------------
 // OpenAPI docs for the /fppd/testing/* endpoints handled below.

@@ -356,7 +356,7 @@ int PCA9685Output::Init(Json::Value config) {
 
     if (!m_servoCommand) {
         m_servoCommand = new ServoPositionCommand(this);
-        CommandManager::INSTANCE.addCommand(m_servoCommand);
+        CommandManager::INSTANCE.addCategorizedCommand(m_servoCommand, "Outputs", 1);
         LogDebug(VB_CHANNELOUT, "PCA9685: Servo Position command registered\n");
     }
 

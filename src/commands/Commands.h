@@ -135,6 +135,7 @@ public:
     void Cleanup();
 
     void addCommand(Command* cmd);
+    void addCategorizedCommand(Command* cmd, const std::string& category, int level = 0);
     void removeCommand(Command* cmd);
     void removeCommand(const std::string& cmdName);
 
@@ -163,11 +164,20 @@ private:
     void MaybeReloadPresets();
 
     Json::Value ReplaceCommandKeywords(Json::Value cmd, std::map<std::string, std::string>& keywords);
+    // Shared by getDescriptions() and the single-command GET route so both
+    // stay in sync on which fields (e.g. category/level) get merged in.
+    Json::Value describeCommand(Command* cmd);
 
     std::mutex presetsMutex;
     Json::Value presets;
     uint64_t lastPresetTimeStamp = 0;
 
+    struct CommandMeta {
+        std::string category;
+        int level = 0;
+    };
+
     std::map<std::string, Command*> commands;
+    std::map<std::string, CommandMeta> commandMeta;
     std::set<std::string> missingPresets;
 };

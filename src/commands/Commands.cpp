@@ -92,57 +92,57 @@ void CommandManager::Init() {
                                       MaybeReloadPresets();
                                   });
 
-    addCommand(new StopPlaylistCommand());
-    addCommand(new StopGracefullyPlaylistCommand());
-    addCommand(new RestartPlaylistCommand());
-    addCommand(new NextPlaylistCommand());
-    addCommand(new PrevPlaylistCommand());
-    addCommand(new StartPlaylistCommand());
-    addCommand(new TogglePlaylistCommand());
-    addCommand(new StartPlaylistAtCommand());
-    addCommand(new StartPlaylistAtRandomCommand());
-    addCommand(new InsertPlaylistCommand());
-    addCommand(new InsertPlaylistImmediate());
-    addCommand(new InsertRandomItemFromPlaylistCommand());
+    addCategorizedCommand(new StopPlaylistCommand(), "Playlist", 0);
+    addCategorizedCommand(new StopGracefullyPlaylistCommand(), "Playlist", 0);
+    addCategorizedCommand(new RestartPlaylistCommand(), "Playlist", 1);
+    addCategorizedCommand(new NextPlaylistCommand(), "Playlist", 0);
+    addCategorizedCommand(new PrevPlaylistCommand(), "Playlist", 0);
+    addCategorizedCommand(new StartPlaylistCommand(), "Playlist", 0);
+    addCategorizedCommand(new TogglePlaylistCommand(), "Playlist", 0);
+    addCategorizedCommand(new StartPlaylistAtCommand(), "Playlist", 1);
+    addCategorizedCommand(new StartPlaylistAtRandomCommand(), "Playlist", 1);
+    addCategorizedCommand(new InsertPlaylistCommand(), "Playlist", 1);
+    addCategorizedCommand(new InsertPlaylistImmediate(), "Playlist", 1);
+    addCategorizedCommand(new InsertRandomItemFromPlaylistCommand(), "Playlist", 1);
 #ifdef HAS_GSTREAMER
-    addCommand(new PlayMediaCommand());
-    addCommand(new StopMediaCommand());
-    addCommand(new StopAllMediaCommand());
-    addCommand(new StopMediaSlotCommand());
-    addCommand(new SetSlotVolumeCommand());
-    addCommand(new MediaSlotStatusCommand());
+    addCategorizedCommand(new PlayMediaCommand(), "Media", 0);
+    addCategorizedCommand(new StopMediaCommand(), "Media", 0);
+    addCategorizedCommand(new StopAllMediaCommand(), "Media", 0);
+    addCategorizedCommand(new StopMediaSlotCommand(), "Media", 1);
+    addCategorizedCommand(new SetSlotVolumeCommand(), "Audio", 1);
+    addCategorizedCommand(new MediaSlotStatusCommand(), "Media", 1);
 #endif
 #ifdef HAS_AES67_GSTREAMER
-    addCommand(new AES67ApplyCommand());
-    addCommand(new AES67CleanupCommand());
-    addCommand(new AES67TestCommand());
-    addCommand(new ApplyRoutingPresetCommand());
+    addCategorizedCommand(new AES67ApplyCommand(), "Audio", 3);
+    addCategorizedCommand(new AES67CleanupCommand(), "Audio", 3);
+    addCategorizedCommand(new AES67TestCommand(), "Audio", 3);
+    addCategorizedCommand(new ApplyRoutingPresetCommand(), "Audio", 3);
 #endif
 #ifdef HAS_OPUS_RTP_GSTREAMER
-    addCommand(new OpusRTPApplyCommand());
-    addCommand(new OpusRTPCleanupCommand());
+    addCategorizedCommand(new OpusRTPApplyCommand(), "Audio", 3);
+    addCategorizedCommand(new OpusRTPCleanupCommand(), "Audio", 3);
 #endif
-    addCommand(new PlaylistPauseCommand());
-    addCommand(new PlaylistResumeCommand());
-    addCommand(new TriggerPresetCommand());
-    addCommand(new TriggerPresetInFutureCommand());
-    addCommand(new TriggerPresetSlotCommand());
-    addCommand(new TriggerMultiplePresetsCommand());
-    addCommand(new TriggerMultiplePresetSlotsCommand());
-    addCommand(new RunScriptEvent());
-    addCommand(new StartEffectCommand());
-    addCommand(new StartFSEQAsEffectCommand());
-    addCommand(new StopFSEQAsEffectCommand());
-    addCommand(new StopEffectCommand());
-    addCommand(new StopAllEffectsCommand());
-    addCommand(new SetVolumeCommand());
-    addCommand(new AdjustVolumeCommand());
-    addCommand(new IncreaseVolumeCommand());
-    addCommand(new DecreaseVolumeCommand());
-    addCommand(new URLCommand());
-    addCommand(new AllLightsOffCommand());
-    addCommand(new SwitchToPlayerModeCommand());
-    addCommand(new SwitchToRemoteModeCommand());
+    addCategorizedCommand(new PlaylistPauseCommand(), "Playlist", 0);
+    addCategorizedCommand(new PlaylistResumeCommand(), "Playlist", 0);
+    addCategorizedCommand(new TriggerPresetCommand(), "Events", 0);
+    addCategorizedCommand(new TriggerPresetInFutureCommand(), "Events", 1);
+    addCategorizedCommand(new TriggerPresetSlotCommand(), "Events", 1);
+    addCategorizedCommand(new TriggerMultiplePresetsCommand(), "Events", 1);
+    addCategorizedCommand(new TriggerMultiplePresetSlotsCommand(), "Events", 1);
+    addCategorizedCommand(new RunScriptEvent(), "Events", 1);
+    addCategorizedCommand(new StartEffectCommand(), "Effects", 0);
+    addCategorizedCommand(new StartFSEQAsEffectCommand(), "Effects", 0);
+    addCategorizedCommand(new StopFSEQAsEffectCommand(), "Effects", 0);
+    addCategorizedCommand(new StopEffectCommand(), "Effects", 0);
+    addCategorizedCommand(new StopAllEffectsCommand(), "Effects", 0);
+    addCategorizedCommand(new SetVolumeCommand(), "Audio", 0);
+    addCategorizedCommand(new AdjustVolumeCommand(), "Audio", 0);
+    addCategorizedCommand(new IncreaseVolumeCommand(), "Audio", 0);
+    addCategorizedCommand(new DecreaseVolumeCommand(), "Audio", 0);
+    addCategorizedCommand(new URLCommand(), "Events", 1);
+    addCategorizedCommand(new AllLightsOffCommand(), "Effects", 0);
+    addCategorizedCommand(new SwitchToPlayerModeCommand(), "System", 1);
+    addCategorizedCommand(new SwitchToRemoteModeCommand(), "System", 1);
 
     std::function<void(const std::string&, const std::string&)> f =
         [](const std::string& topic, const std::string& payload) {
@@ -214,25 +214,45 @@ void CommandManager::Cleanup() {
 }
 
 void CommandManager::addCommand(Command* cmd) {
+    // Plugin-facing entry point. Kept as a distinct, unchanged symbol (name and
+    // signature) so no plugin needs to be rebuilt. Anything registered through
+    // here is by definition not one of FPP's own categorized core commands, so
+    // it's tagged "Plugins" / level 0 (visible in Basic UI, per user decision:
+    // don't hide something a user deliberately installed).
+    addCategorizedCommand(cmd, "Plugins", 0);
+}
+void CommandManager::addCategorizedCommand(Command* cmd, const std::string& category, int level) {
     commands[cmd->name] = cmd;
+    commandMeta[cmd->name] = { category, level };
 }
 void CommandManager::removeCommand(Command* cmd) {
     auto a = commands.find(cmd->name);
     if (a != commands.end()) {
         commands.erase(a);
     }
+    commandMeta.erase(cmd->name);
 }
 void CommandManager::removeCommand(const std::string& cmdName) {
     auto a = commands.find(cmdName);
     if (a != commands.end()) {
         commands.erase(a);
     }
+    commandMeta.erase(cmdName);
+}
+Json::Value CommandManager::describeCommand(Command* cmd) {
+    Json::Value result = cmd->getDescription();
+    auto m = commandMeta.find(cmd->name);
+    if (m != commandMeta.end()) {
+        result["category"] = m->second.category;
+        result["level"] = m->second.level;
+    }
+    return result;
 }
 Json::Value CommandManager::getDescriptions() {
     Json::Value ret;
     for (auto& a : commands) {
         if (!a.second->hidden()) {
-            ret.append(a.second->getDescription());
+            ret.append(describeCommand(a.second));
         }
     }
     return ret;
@@ -325,14 +345,17 @@ std::unique_ptr<Command::Result> CommandManager::run(const Json::Value& cmd) {
 // --------------------------------------------------------------------------
 
 /**
- * List all available commands and their argument descriptions.
+ * List all available commands and their argument descriptions. Each entry
+ * also carries "category" (e.g. "Playlist", "Media", "Plugins") and "level"
+ * (0 Basic / 1 Advanced / 3 Developer) for UI grouping and filtering.
  *
  * @route GET /api/commands
  * @response 200 Array of command descriptions.
  */
 
 /**
- * Get the description of a single command by name.
+ * Get the description of a single command by name. Includes the same
+ * "category"/"level" fields as the list route.
  *
  * @route GET /api/commands/{command}
  * @response 200 The command description.
@@ -373,7 +396,7 @@ HttpResponsePtr CommandManager::render_GET(const HttpRequestPtr& req) {
             std::string command = parts[1];
             auto f = commands.find(command);
             if (f != commands.end()) {
-                Json::Value result = f->second->getDescription();
+                Json::Value result = describeCommand(f->second);
                 std::string resultStr = SaveJsonToString(result, "  ");
                 return makeStringResponse(resultStr, 200, "application/json");
             }

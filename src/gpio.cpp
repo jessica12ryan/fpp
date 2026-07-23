@@ -79,7 +79,7 @@ void GPIOManager::Initialize(std::map<int, std::function<bool(int)>>& callbacks)
     SetupGPIOInput(callbacks);
     std::vector<std::string> pins = PinCapabilities::getPinNames();
     if (!pins.empty()) {
-        CommandManager::INSTANCE.addCommand(new FPPGPIOCommand());
+        CommandManager::INSTANCE.addCategorizedCommand(new FPPGPIOCommand(), "Outputs", 1);
     }
 }
 

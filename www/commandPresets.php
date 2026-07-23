@@ -8,13 +8,6 @@
     require_once 'common/menuHead.inc';
     require_once 'common.php';
 
-    $commandOptions = "";
-    $commandsJSON = file_get_contents('http://localhost:32322/commands');
-    $data = json_decode($commandsJSON, true);
-    foreach ($data as $cmd) {
-        $commandOptions .= "<option value='" . $cmd['name'] . "'>" . $cmd['name'] . "</option>";
-    }
-
     if (file_exists(__DIR__ . "/fppdefines.php")) {
         include_once __DIR__ . '/fppdefines.php';
     } else {
@@ -300,7 +293,7 @@
                                     <td><input type='text' size='32' maxlength='64' class='cmdTmplName'
                                             list='PresetTriggerNames'></td>
                                     <td><select class='cmdTmplCommand'
-                                            onChange='EditCommandTemplate($(this).parent().parent());'><? echo $commandOptions; ?></select>
+                                            onChange='EditCommandTemplate($(this).parent().parent());'></select>
                                         <input type='button' class='buttons reallySmallButton' value='Edit'
                                             onClick='EditCommandTemplate($(this).parent().parent());'>
                                         <input type='button' class='buttons smallButton' value='Run Now'

@@ -1394,6 +1394,6 @@ public:
 };
 
 void Scheduler::RegisterCommands() {
-    CommandManager::INSTANCE.addCommand(new StartNextItemCommand(this));
-    CommandManager::INSTANCE.addCommand(new ExtendScheduleCommand(this));
+    CommandManager::INSTANCE.addCategorizedCommand(new StartNextItemCommand(this), "Playlist", 1);
+    CommandManager::INSTANCE.addCategorizedCommand(new ExtendScheduleCommand(this), "Playlist", 1);
 }

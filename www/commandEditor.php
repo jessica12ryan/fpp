@@ -40,7 +40,7 @@
                 $("#editorCommand").append("<option value='" + cmds[i] + "'>" + cmds[i] + "</option>");
             }
         } else {
-            LoadCommandList($('#editorCommand'));
+            LoadCommandList($('#editorCommand'), data['command']);
         }
 
         $('#btnSaveEditorCommand').val(args.saveButton);
