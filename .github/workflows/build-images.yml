@@ -4,8 +4,10 @@
 # Runs:
 #   - workflow_dispatch: manual trigger with optional version string
 #   - schedule:          nightly at 04:00 UTC
-#   - push (tag v*):     release build; results are attached to a GitHub
-#                        release named from the tag
+#   - push (release tag): release build (major version >= 10 only); results are
+#                        attached to a GitHub release named from the tag. Tags
+#                        are numeric with NO 'v' prefix (10.0-beta) -- see the
+#                        on.push.tags filter below and src/fppversion.sh.
 #
 # Strategy:
 #   - Pi64 / BB64 build on GitHub's free arm64 runners (native, fast)
@@ -32,8 +34,20 @@ on:
   schedule:
     - cron: '0 4 * * *'
   push:
+    # Auto-build only release tags for major version >= 10. Tags are numeric
+    # with NO 'v' prefix: src/fppversion.sh runs the tag through `git describe`
+    # and does MAJOR_VERSION=$(cut -f1 -d.), so a leading 'v' would corrupt every
+    # displayed version (v10 instead of 10).
+    #
+    # `[1-9][0-9]*` matches any tag whose major version has two-or-more digits
+    # (10.0-beta, 10.4, 11.2, 100.0 ...) and so skips every single-digit major
+    # (9.6, 9.5.4, 8.x ...). The 9.x and earlier branches are NOT wired for
+    # automated image creation, so they must stay manual. `!*-master` excludes
+    # the X.x-master branch-point markers (e.g. 10.x-master); 'nightly' is
+    # skipped automatically since it does not start with a digit.
     tags:
-      - 'v*'
+      - '[1-9][0-9]*'
+      - '!*-master'
 
 # A manual re-run on the same ref should cancel a running build to avoid
 # wasting a 2-hour qemu job when you realize you tagged the wrong commit.
@@ -53,9 +67,13 @@ jobs:
       - name: Determine version string
         id: ver
         run: |
-          # Tag push -> release build, version from tag
-          if [ "${{ github.event_name }}" = "push" ] && [[ "$GITHUB_REF" == refs/tags/v* ]]; then
-            V="${GITHUB_REF#refs/tags/v}"
+          # Tag push -> release build. on.push.tags only fires this workflow for
+          # release-shaped tags, which by FPP convention carry NO 'v' prefix
+          # (10.0-beta, 9.5.3): src/fppversion.sh feeds the tag straight through
+          # `git describe`, so the version string IS the tag verbatim -- do not
+          # strip anything.
+          if [ "${{ github.event_name }}" = "push" ] && [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            V="${GITHUB_REF#refs/tags/}"
             echo "is_release=true" >> "$GITHUB_OUTPUT"
             echo "is_nightly=false" >> "$GITHUB_OUTPUT"
           # Manual dispatch with explicit version -> one-off build
