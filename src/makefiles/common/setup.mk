@@ -175,3 +175,39 @@ CFLAGS+=$(OPTIMIZE_FLAGS) -pipe \
 	-I /usr/include/jsoncpp \
 	-fpic
 
+# Auto-generate per-object header dependency files (-MMD) with phony targets
+# for removed headers (-MP), so a change to a core header (e.g. Commands.h)
+# correctly invalidates any plugin object that transitively includes it -
+# without this, `make` only knows about a .cpp's *own* prerequisites and
+# silently reports "Nothing to be done" after a core header changes,
+# leaving a stale, potentially ABI-incompatible .so in place.
+#
+# Scoped to plugin builds only (not the core itself): the core's own
+# Makefile sets SRCDIR to its own directory, so CURDIR == SRCDIR there;
+# every plugin Makefile sets SRCDIR ?= /opt/fpp/src as an *external*
+# reference, so CURDIR != SRCDIR. This keeps the core build (which has its
+# own, separate staleness story) free of the .d files this generates.
+ifneq ($(abspath $(CURDIR)),$(abspath $(SRCDIR)))
+CFLAGS += -MMD -MP
+
+# Pull in whatever dependency files already exist in the plugin's own build
+# directory. This is intentionally a plain wildcard (not tied to any
+# plugin-specific OBJECTS variable name) so it works unmodified for every
+# plugin that includes this file. -include (vs include) means a missing .d
+# - e.g. before a plugin's very first build - is silently ignored instead
+# of erroring.
+#
+# Gotcha: this file is included at the *top* of every plugin's Makefile,
+# before that Makefile defines its own "all" target. A .d file's rules
+# (e.g. "src/Foo.o: src/Foo.cpp Commands.h ...") are themselves targets, and
+# GNU Make's default goal is the first target seen across every file it
+# reads, included files included - so without the line below, a bare `make`
+# would silently build the first *.o instead of "all" once any .d file
+# exists. Every plugin Makefile here follows the same "all: ..." convention
+# (see e.g. fpp-Capture/Makefile), so pin it explicitly rather than let
+# inclusion order decide it by accident.
+.DEFAULT_GOAL := all
+
+-include $(wildcard *.d)
+-include $(wildcard */*.d)
+endif

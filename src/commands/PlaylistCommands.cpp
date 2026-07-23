@@ -70,7 +70,10 @@ StartPlaylistCommand::StartPlaylistCommand() :
     args.push_back(CommandArg("name", "string", "Playlist Name")
                        .setContentListUrl("api/playlists/playable"));
     args.push_back(CommandArg("repeat", "bool", "Repeat", true).setDefaultValue("false"));
-    args.push_back(CommandArg("ifNotRunning", "bool", "If Not Running", true).setDefaultValue("false"));
+    args.push_back(CommandArg("ifNotRunning", "bool", "If Not Running", true)
+                       .setDefaultValue("false")
+                       .setHelp("Checks to see if this exact item is already running and "
+                                "prevents it from running again."));
     args.push_back(CommandArg("scheduleProtected", "bool", "Protected from Schedule Override", true).setDefaultValue("false"));
 }
 std::unique_ptr<Command::Result> StartPlaylistCommand::run(const std::vector<std::string>& args) {
@@ -160,7 +163,10 @@ StartPlaylistAtCommand::StartPlaylistAtCommand() :
                        .setContentListUrl("api/playlists"));
     args.push_back(CommandArg("item", "int", "Item Index").setRange(1, 100));
     args.push_back(CommandArg("repeat", "bool", "Repeat", true).setDefaultValue("false"));
-    args.push_back(CommandArg("ifNotRunning", "bool", "If Not Running", true).setDefaultValue("false"));
+    args.push_back(CommandArg("ifNotRunning", "bool", "If Not Running", true)
+                       .setDefaultValue("false")
+                       .setHelp("Checks to see if this exact item is already running and "
+                                "prevents it from running again."));
     args.push_back(CommandArg("scheduleProtected", "bool", "Protected from Schedule Override", true).setDefaultValue("false"));
 }
 std::unique_ptr<Command::Result> StartPlaylistAtCommand::run(const std::vector<std::string>& args) {
@@ -229,7 +235,10 @@ StartPlaylistAtRandomCommand::StartPlaylistAtRandomCommand() :
     args.push_back(CommandArg("name", "string", "Playlist Name")
                        .setContentListUrl("api/playlists"));
     args.push_back(CommandArg("repeat", "bool", "Repeat", true).setDefaultValue("false"));
-    args.push_back(CommandArg("ifNotRunning", "bool", "If Not Running", true).setDefaultValue("false"));
+    args.push_back(CommandArg("ifNotRunning", "bool", "If Not Running", true)
+                       .setDefaultValue("false")
+                       .setHelp("Checks to see if this exact item is already running and "
+                                "prevents it from running again."));
 }
 std::unique_ptr<Command::Result> StartPlaylistAtRandomCommand::run(const std::vector<std::string>& args) {
     bool r = false;
@@ -265,7 +274,10 @@ InsertPlaylistCommand::InsertPlaylistCommand() :
                        .setContentListUrl("api/playlists/playable"));
     args.push_back(CommandArg("startItem", "int", "Start Item Index", true).setRange(-1, 100).setDefaultValue("-1"));
     args.push_back(CommandArg("endItem", "int", "End Item Index", true).setRange(-1, 100).setDefaultValue("-1"));
-    args.push_back(CommandArg("ifNotRunning", "bool", "If Not Running", true).setDefaultValue("false"));
+    args.push_back(CommandArg("ifNotRunning", "bool", "If Not Running", true)
+                       .setDefaultValue("false")
+                       .setHelp("Checks to see if this exact item is already running and "
+                                "prevents it from running again."));
 }
 std::unique_ptr<Command::Result> InsertPlaylistCommand::run(const std::vector<std::string>& args) {
     int start = -1;
@@ -292,7 +304,10 @@ InsertPlaylistImmediate::InsertPlaylistImmediate() :
                        .setContentListUrl("api/playlists/playable"));
     args.push_back(CommandArg("startItem", "int", "Start Item Index", true).setRange(0, 100).setDefaultValue("0"));
     args.push_back(CommandArg("endItem", "int", "End Item Index", true).setRange(0, 100).setDefaultValue("0"));
-    args.push_back(CommandArg("ifNotRunning", "bool", "If Not Running", true).setDefaultValue("false"));
+    args.push_back(CommandArg("ifNotRunning", "bool", "If Not Running", true)
+                       .setDefaultValue("false")
+                       .setHelp("Checks to see if this exact item is already running and "
+                                "prevents it from running again."));
 }
 std::unique_ptr<Command::Result> InsertPlaylistImmediate::run(const std::vector<std::string>& args) {
     int start = -1;

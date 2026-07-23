@@ -106,6 +106,16 @@ public:
             adjustable = true;
             return *this;
         }
+        // Extra explanatory text shown as a hover tooltip next to the label -
+        // for when the short description isn't enough room to explain a
+        // field properly. Reuses the same Bootstrap tooltip mechanism
+        // (data-bs-toggle="tooltip" + .tooltip()) already used elsewhere in
+        // fpp.js (the command-preset preview icon), just newly wired into
+        // the generic per-arg renderer.
+        CommandArg& setHelp(const std::string& h) {
+            help = h;
+            return *this;
+        }
 
         ~CommandArg() {}
 
@@ -122,6 +132,7 @@ public:
         std::string defaultValue;
         std::string adjustableGetValueURL;
         bool adjustable;
+        std::string help;
     };
 
     std::string name;

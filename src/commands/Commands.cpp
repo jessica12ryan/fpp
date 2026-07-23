@@ -73,6 +73,9 @@ Json::Value Command::getDescription() {
                 a["adjustableGetValueURL"] = ar.adjustableGetValueURL;
             }
         }
+        if (!ar.help.empty()) {
+            a["help"] = ar.help;
+        }
 
         cmd["args"].append(a);
     }

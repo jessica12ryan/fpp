@@ -149,7 +149,10 @@ StartEffectCommand::StartEffectCommand() :
     args.push_back(CommandArg("startChannel", "int", "Start Channel"));
     args.push_back(CommandArg("loop", "bool", "Loop Effect").setDefaultValue("true"));
     args.push_back(CommandArg("bg", "bool", "Background"));
-    args.push_back(CommandArg("ifNotRunning", "bool", "If Not Running", true).setDefaultValue("false"));
+    args.push_back(CommandArg("ifNotRunning", "bool", "If Not Running", true)
+                       .setDefaultValue("false")
+                       .setHelp("Checks to see if this exact item is already running and "
+                                "prevents it from running again."));
     args.push_back(CommandArg("Model", "string", "Model").setContentListUrl("api/models?simple=true", true));
 }
 std::unique_ptr<Command::Result> StartEffectCommand::run(const std::vector<std::string>& args) {

@@ -8516,12 +8516,13 @@ function CommandSelectChanged (
 		line += "style='display:none'";
 	}
 	line +=
-		"><td>Multisync:</td><td><input type='checkbox' id='" +
+		"><td>Multisync: <i class='fas fa-question-circle argHelpIcon' data-bs-toggle='tooltip' data-bs-placement='top' title='Send this command to multiple FPP instances'></i></td><td><input type='checkbox' id='" +
 		tblCommand +
 		"_multisync' class='arg_multisync' onChange='OnMultisyncChanged(this, \"" +
 		tblCommand +
 		'");\'></input></td></tr>';
 	$('#' + tblCommand).append(line);
+	InitArgHelpTooltips();
 	// Hosts row: a scrollable checkbox list (single-tap, touch/kiosk friendly,
 	// no jQuery-UI needed) plus a text box to add an arbitrary host. A hidden
 	// input keeps the comma-separated value that the save/load paths and the
@@ -8770,6 +8771,14 @@ function PrintArgsInputsForEditable (
 	$.each(args, valFunc);
 }
 
+// Activates Bootstrap tooltips for any CommandArg's "help" text - same
+// mechanism already used for the command-preset preview icon elsewhere in
+// this file (data-bs-toggle="tooltip" + .tooltip()), just newly wired into
+// the generic per-arg renderer (PrintArgInputs).
+function InitArgHelpTooltips () {
+	$('.argHelpIcon').tooltip();
+}
+
 function PrintArgInputs (tblCommand, configAdjustable, args, startCount = 1) {
 	var count = startCount;
 	var initFuncs = [];
@@ -8811,7 +8820,15 @@ function PrintArgInputs (tblCommand, configAdjustable, args, startCount = 1) {
 		if (children.includes(val['name']))
 			line += '&nbsp;&nbsp;&nbsp;&nbsp;&bull;&nbsp;';
 
-		line += val['description'] + ':</td><td>';
+		line += val['description'] + ':';
+		if (typeof val['help'] === 'string' && val['help'] !== '') {
+			line +=
+				" <i class='fas fa-question-circle argHelpIcon' data-bs-toggle='tooltip' data-bs-placement='top' title='" +
+				val['help'].replace(/'/g, '&apos;') +
+				"'></i>";
+			initFuncs.push('InitArgHelpTooltips');
+		}
+		line += '</td><td>';
 
 		var dv = '';
 		if (typeof val['default'] != 'undefined') {
