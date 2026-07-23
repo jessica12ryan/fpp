@@ -12,6 +12,28 @@
     if (isset($settings["UnpartitionedSpace"]) && $settings['UnpartitionedSpace'] > 0) {
         $storageUILevel = 0;
     }
+    if ($storageUILevel > 0 && $settings['Platform'] != "MacOS" && $settings['Platform'] != "Docker") {
+        exec('findmnt -n -o SOURCE / | colrm 1 5', $rootDevOutput, $return_val);
+        $rootDev = isset($rootDevOutput[0]) ? trim($rootDevOutput[0]) : "";
+        unset($rootDevOutput);
+        $flashTargets = array();
+        if (preg_match('/^mmcblk0p/', $rootDev)) {
+            $flashTargets = array("mmcblk1", "nvme0n1", "sda");
+        } else if (preg_match('/^mmcblk1p/', $rootDev) && isset($settings['Variant']) && $settings['Variant'] == "PocketBeagle2") {
+            $flashTargets = array("mmcblk0");
+        }
+        foreach ($flashTargets as $target) {
+            if (file_exists("/dev/" . $target)) {
+                exec("lsblk -b -d -n -o SIZE /dev/" . $target, $sizeOutput, $return_val);
+                $sizeGB = (isset($sizeOutput[0]) ? intval($sizeOutput[0]) : 0) / 1024 / 1024 / 1024;
+                unset($sizeOutput);
+                if ($sizeGB > 12) {
+                    $storageUILevel = 0;
+                    break;
+                }
+            }
+        }
+    }
     $pages = array(
         array("name" => "playback", "title" => "Playback", "ui" => 0),
         array("name" => "av", "title" => "Audio/Video", "ui" => 0),
