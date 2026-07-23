@@ -82,6 +82,16 @@ function network_wifi_strength()
  *   ]
  * }
  * ```
+ * If the interface currently has a live association that an active scan would
+ * disrupt (an AP-mode hotspot with connected clients, or a managed-mode link
+ * with no safe low-priority scan path), the scan is skipped entirely:
+ * ```json
+ * {
+ *   "status": "Blocked",
+ *   "networks": [],
+ *   "message": "wlan0 is currently running the FPP hotspot with 2 device(s) connected. Scanning would disconnect them, so it's blocked while the hotspot has active clients."
+ * }
+ * ```
  */
 /**
  * Parse `iw dev <iface> scan` output into an array of network descriptors.
@@ -187,6 +197,65 @@ function network_parse_iwlist_scan($output)
     return $networks;
 }
 
+/**
+ * Determine whether a wifi interface currently has a live association that a
+ * disruptive active scan would interrupt:
+ *   - AP mode (hostapd) with station(s) connected - scanning stops beaconing
+ *     and would drop all of them.
+ *   - Managed mode, associated to an AP - scanning forces the radio
+ *     off-channel and can degrade/drop that link.
+ *
+ * Returns array("mode" => "AP"|"station"|"idle", "clientCount" => int, "ssid" => string)
+ */
+function network_interface_in_use($interface)
+{
+    $iface = escapeshellarg($interface);
+
+    $infoOut = array();
+    exec("/sbin/iw dev $iface info 2>/dev/null", $infoOut);
+    $iftype = "";
+    foreach ($infoOut as $line) {
+        if (preg_match('/^\s*type\s+(\S+)/', $line, $m)) {
+            $iftype = $m[1];
+            break;
+        }
+    }
+
+    if ($iftype === "AP") {
+        $staOut = array();
+        exec("sudo /sbin/iw dev $iface station dump 2>/dev/null", $staOut);
+        $clientCount = 0;
+        foreach ($staOut as $line) {
+            if (preg_match('/^Station /', $line)) {
+                $clientCount++;
+            }
+        }
+        if ($clientCount > 0) {
+            return array("mode" => "AP", "clientCount" => $clientCount, "ssid" => "");
+        }
+        return array("mode" => "idle", "clientCount" => 0, "ssid" => "");
+    }
+
+    if ($iftype === "managed") {
+        $statusOut = array();
+        exec("sudo wpa_cli -i $iface status 2>/dev/null", $statusOut);
+        $wpaState = "";
+        $ssid = "";
+        foreach ($statusOut as $line) {
+            if (preg_match('/^wpa_state=(.*)$/', $line, $m)) {
+                $wpaState = trim($m[1]);
+            } else if (preg_match('/^ssid=(.*)$/', $line, $m)) {
+                $ssid = trim($m[1]);
+            }
+        }
+        if ($wpaState === "COMPLETED") {
+            return array("mode" => "station", "clientCount" => 0, "ssid" => $ssid);
+        }
+    }
+
+    return array("mode" => "idle", "clientCount" => 0, "ssid" => "");
+}
+
 function network_wifi_scan()
 {
     $networks = array();
@@ -208,6 +277,36 @@ function network_wifi_scan()
     }
 
     exec("sudo /sbin/ip link set $interface up", $output);
+
+    $inUse = network_interface_in_use($interface);
+
+    if ($inUse["mode"] === "AP") {
+        return json(array(
+            "status" => "Blocked",
+            "networks" => array(),
+            "message" => "$interface is currently running the FPP hotspot with " . $inUse["clientCount"] .
+                " device(s) connected. Scanning would disconnect them, so it's blocked while the hotspot has active clients."
+        ));
+    }
+
+    if ($inUse["mode"] === "station") {
+        // Only the nl80211 low-priority scan avoids blindly preempting the
+        // AP's beacon schedule. `iwlist`/WEXT has no equivalent priority
+        // hint, so if `iw` can't do it here there is no safe path - block
+        // rather than silently falling back to a disruptive iwlist scan.
+        $output = array();
+        exec("sudo /sbin/iw dev $interface scan low-priority 2>&1", $output, $ret);
+        if ($ret !== 0) {
+            $ssidMsg = $inUse["ssid"] !== "" ? "connected to '" . $inUse["ssid"] . "'" : "connected";
+            return json(array(
+                "status" => "Blocked",
+                "networks" => array(),
+                "message" => "$interface is currently $ssidMsg. This adapter doesn't support a safe scan while connected, so scanning is blocked to avoid dropping that connection."
+            ));
+        }
+        $networks = network_parse_iw_scan($output);
+        return json(array("status" => "OK", "networks" => $networks));
+    }
 
     // Preferred path: nl80211 via `iw`. Works on modern in-kernel drivers
     // and Wi-Fi 7 hardware where the old wireless extensions are gone.

@@ -1411,6 +1411,12 @@
                 var html = '';
                 var uniqueNetworks = {};
 
+                if (data && data.status === 'Blocked') {
+                    html = '<tr><td colspan="3" class="p-2 text-center text-muted">' + data.message + '</td></tr>';
+                    wifiTableBody.html(html);
+                    return;
+                }
+
                 if (data && data.networks && data.networks.length > 0) {
                     // Process networks and keep only the strongest signal for each SSID
                     data.networks.forEach(function (n) {

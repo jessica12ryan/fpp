@@ -96,18 +96,71 @@ show() {
     printf "\n"
 }
 
+# Is this AP-mode interface currently beaconing to any associated stations?
+# Active scanning stops beaconing, which would drop every one of them - on
+# typical single-radio FPP hardware there's no way to scan while beaconing.
+ap_client_count() {
+    iw dev "$1" station dump 2>/dev/null | grep -c '^Station '
+}
+
+# Is this managed-mode interface currently associated to an AP?
+# Echoes the SSID (may be empty) and returns non-zero if not connected.
+station_connected_ssid() {
+    local out state ssid
+    out=$(wpa_cli -i "$1" status 2>/dev/null)
+    state=$(awk -F= '$1=="wpa_state"{print $2}' <<< "$out")
+    ssid=$(awk -F= '$1=="ssid"{print $2}' <<< "$out")
+    [ "$state" = "COMPLETED" ] || return 1
+    printf '%s' "$ssid"
+}
+
 while read -r wifi_device || [[ -n $wifi_device ]]; do
     [ -z "$wifi_device" ] && continue
 
     UPORDOWN=$(cat "/sys/class/net/$wifi_device/operstate" 2>/dev/null || echo down)
     ip link set "$wifi_device" up 2>/dev/null
 
+    iftype=$(iw dev "$wifi_device" info 2>/dev/null | awk '$1=="type"{print $2}')
+
+    printf "Wifi Device: %s\n" "$wifi_device"
+
+    if [ "$iftype" = "AP" ] && [ "$(ap_client_count "$wifi_device")" -gt 0 ]; then
+        # Hotspot with client(s) attached - scanning would drop beaconing and
+        # disconnect all of them. No safe way to scan on a single radio, so skip.
+        printf "%s: hotspot has %s client(s) connected - skipping disruptive scan\n\n" \
+            "$wifi_device" "$(ap_client_count "$wifi_device")"
+        [ "$UPORDOWN" = "down" ] && ip link set "$wifi_device" down 2>/dev/null
+        continue
+    fi
+
+    ssid=""
+    connected=0
+    if [ "$iftype" = "managed" ] && ssid=$(station_connected_ssid "$wifi_device"); then
+        connected=1
+    fi
+
+    if [ "$connected" -eq 1 ]; then
+        # Connected station: only the nl80211 low-priority scan avoids blindly
+        # preempting the AP's beacon schedule. `iwlist`/WEXT has no equivalent
+        # priority hint, so skip it here rather than risk dropping the link.
+        iw_scan=$(iw dev "$wifi_device" scan low-priority 2>&1)
+        if [ $? -ne 0 ]; then
+            printf "%s: connected to '%s', no safe scan method available - skipping disruptive scan\n\n" \
+                "$wifi_device" "$ssid"
+            [ "$UPORDOWN" = "down" ] && ip link set "$wifi_device" down 2>/dev/null
+            continue
+        fi
+        show "iw dev $wifi_device scan (nl80211, low-priority)" '^BSS ' parse_iw "$iw_scan"
+        printf -- "----- iwlist %s scan (WEXT) -----\nskipped - connected station, no safe scan method for this backend\n\n" "$wifi_device"
+        [ "$UPORDOWN" = "down" ] && ip link set "$wifi_device" down 2>/dev/null
+        continue
+    fi
+
     iw_scan=$(iw dev "$wifi_device" scan 2>&1)
     iwlist_scan=$(iwlist "$wifi_device" scan 2>&1)
 
     [ "$UPORDOWN" = "down" ] && ip link set "$wifi_device" down 2>/dev/null
 
-    printf "Wifi Device: %s\n" "$wifi_device"
     show "iw dev $wifi_device scan (nl80211)" '^BSS ' parse_iw "$iw_scan"
     show "iwlist $wifi_device scan (WEXT)" 'Cell ' parse_iwlist "$iwlist_scan"
 done < <(iw dev | awk '$1=="Interface"{print $2}')
