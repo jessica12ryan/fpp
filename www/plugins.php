@@ -944,7 +944,7 @@
                 }
 
                 var minOk = CompareFPPVersions(v.minFPPVersion, getFPPVersionTriplet()) <= 0;
-                var maxOk = isUnset(effMax) || (CompareFPPVersions(effMax, getFPPVersionTriplet()) > 0);
+                var maxOk = isUnset(effMax) || (CompareFPPVersions(effMax, getFPPVersionTriplet()) >= 0);
                 var platOk = (!v.hasOwnProperty('platforms')) || (v.platforms.includes(settings['Platform']));
                 if (minOk && maxOk && platOk)
                     compatibleVersion = i;
