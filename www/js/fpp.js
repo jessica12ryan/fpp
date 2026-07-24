@@ -166,7 +166,7 @@ function common_PageLoad_DOM_Setup () {
 	OnSystemStatusChange(RefreshHeaderBar);
 	OnSystemStatusChange(IsFPPDrunning);
 	OnSystemStatusChange(OnFPPDRestart);
-	captureCommandListHash();
+	captureCommandListJSON();
 	// If status was pre-populated server-side, fire callbacks immediately so
 	// the header/footer render without waiting for the first AJAX round-trip.
 	if (lastStatusJSON) {
@@ -8268,7 +8268,7 @@ function PopulateCommandListCache () {
 
 // Eagerly capture the command list fingerprint once on page load so we can
 // detect changes after an fppd restart.
-function captureCommandListHash () {
+function captureCommandListJSON () {
 	$.ajax({
 		dataType: 'json',
 		url: 'api/commands',
