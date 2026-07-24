@@ -55,7 +55,7 @@ var _systemWarningInfo = [];
 // command list and refresh the page if it has changed (e.g. plugin
 // commands added/removed).
 var _fppdWasRunning = null;
-var _savedCommandListHash = '';
+var _savedCommandListJSON = '';
 var zebraPinSubContentTop = 0;
 var VolumeChangeInProgress = false;
 var VolumeChangeAPIInProgress = false;
@@ -8274,7 +8274,7 @@ function captureCommandListHash () {
 		url: 'api/commands',
 		async: true,
 		success: function (data) {
-			_savedCommandListHash = JSON.stringify(data);
+			_savedCommandListJSON = JSON.stringify(data);
 		}
 	});
 }
@@ -8282,14 +8282,14 @@ function captureCommandListHash () {
 // Called after an fppd restart transition.  Re-fetches the command list and
 // hard-reloads the page if it differs from the pre-restart snapshot.
 function checkCommandListChanged () {
-	if (!_savedCommandListHash) return;
+	if (!_savedCommandListJSON) return;
 	$.ajax({
 		dataType: 'json',
 		url: 'api/commands',
 		async: true,
 		success: function (data) {
 			var hash = JSON.stringify(data);
-			if (hash !== _savedCommandListHash) {
+			if (hash !== _savedCommandListJSON) {
 				location.reload();
 			}
 		}
