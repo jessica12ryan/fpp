@@ -9022,9 +9022,12 @@ function UploadCrashReportsSequentially (files, idx, tally, options) {
 		UploadCrashReportsSequentially(files, idx + 1, tally, options);
 	};
 
+	// The user agreed in the confirmation dialog; -manual reports require it
 	$.ajax({
 		url: 'api/crashes/upload/' + encodeURIComponent(file),
 		type: 'POST',
+		contentType: 'application/json',
+		data: JSON.stringify({ consent: true }),
 		dataType: 'json'
 	})
 		.done(function (data) {

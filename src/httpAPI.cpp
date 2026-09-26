@@ -571,6 +571,27 @@ void APIServer::Init(void) {
     };
     app.registerHandler("/internal/pluginApiRoutes", copyHandler(handlePluginApiRoutes), {drogon::Get, drogon::Head});
 
+    // Builds a -manual crash report for POST /api/crashes/report.  The build
+    // runs off the event loop.
+    app.registerHandler("/internal/crashReport", [](const HttpRequestPtr&, std::function<void(const HttpResponsePtr&)>&& callback) {
+        std::thread([callback = std::move(callback)]() {
+            Json::Value result;
+            std::string error;
+            std::string file = BuildManualCrashReport(error);
+            if (file.empty()) {
+                result["Status"] = "ERROR";
+                result["Code"] = error;
+            } else {
+                result["Status"] = "OK";
+                result["File"] = file;
+            }
+            // fppd may have stopped drogon while the report was building
+            if (drogon::app().isRunning()) {
+                callback(makeStringResponse(SaveJsonToString(result), 200, "application/json"));
+            }
+        }).detach();
+    }, {drogon::Post});
+
     /**
      * Load or unload a plugin without restarting fppd, so installing a plugin can
      * take effect and uninstalling one can stop having effect mid-show.

@@ -1096,7 +1096,8 @@ function finalizeStatusJson($obj)
     }
 
     if (is_dir($settings['mediaDirectory'] . "/crashes")) {
-        $num = count(glob($settings['mediaDirectory'] . "/crashes/*.zip"));
+        // -manual.zip reports were asked for (POST /api/crashes/report), not crashes
+        $num = count(preg_grep('/-manual\.zip$/', glob($settings['mediaDirectory'] . "/crashes/*.zip") ?: array(), PREG_GREP_INVERT));
         if ($num > 0) {
             $plural = 's';
             $verb = 'are';
