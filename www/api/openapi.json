@@ -1658,6 +1658,42 @@
         }
       }
     },
+    "/api/crashes/disclosures": {
+      "get": {
+        "tags": [
+          "crashes"
+        ],
+        "summary": "The crash rows of Settings > Privacy, to show before sending a crash report",
+        "description": "The same labels, \"goes to\" and sub-captions as the privacy table, with each row's text, plus the e-mail row when an address is set, so the two cannot drift.  `item` is the label as a short \"includes\" phrase and `goesTo` the recipients as one line, both derived from the table's own wording.  All text fields are HTML: insert them as markup, not text.",
+        "responses": {
+          "200": {
+            "description": "Rows in table order",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                },
+                "example": {
+                  "Status": "OK",
+                  "goesTo": "FPP &amp; xLights developers and AI service",
+                  "rows": [
+                    {
+                      "id": "crash",
+                      "label": "Send crash reports",
+                      "item": "crash reports",
+                      "goesTo": "FPP &amp; xLights developers,<br>AI service",
+                      "sub": "...",
+                      "depth": 0,
+                      "body": "<p>...</p>"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/crashes/upload/<file>": {
       "post": {
         "tags": [

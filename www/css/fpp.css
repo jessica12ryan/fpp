@@ -5098,3 +5098,14 @@ pre.release-notes-body {
 		max-width: 100%;
 	}
 }
+
+/* Crash report dialog: a disclosure popover wide enough to read its long text,
+   scrolling inside the dialog rather than past it */
+.crash-disclosure-popover {
+	--bs-popover-max-width: min(720px, 92vw);
+}
+
+.crash-disclosure-popover .popover-body {
+	max-height: 40vh;
+	overflow-y: auto;
+}

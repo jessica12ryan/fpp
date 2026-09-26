@@ -91,7 +91,7 @@
 <p>Generated when <code>fppd</code> crashes, if crash reporting is enabled in <code>Settings → Privacy</code>.</p>
 <ul>
     <li><b>Download</b> — Save reports to your computer for sharing.</li>
-    <li><b>Upload and Delete</b> — Sends the selected reports to the FPP developers, then removes them from this player. Use this when you want to help diagnose a crash.</li>
+    <li><b>Upload and Delete</b> — Sends the selected reports, then removes them from this player. The confirmation shows who receives them and what they contain. Use this when you want to help diagnose a crash.</li>
     <li><b>Delete</b> — Discards reports without sending.</li>
 </ul>
 

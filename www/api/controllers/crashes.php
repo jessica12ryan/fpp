@@ -83,6 +83,54 @@ function GetCrashUploadTarget()
 }
 
 /**
+ * The crash rows of Settings > Privacy, to show before sending a crash report
+ *
+ * The same labels, "goes to" and sub-captions as the privacy table, with each
+ * row's text, plus the e-mail row when an address is set, so the two cannot
+ * drift.  `item` is the label as a short "includes" phrase and `goesTo` the
+ * recipients as one line, both derived from the table's own wording.  All text
+ * fields are HTML: insert them as markup, not text.
+ *
+ * @route GET /api/crashes/disclosures
+ * @response 200 Rows in table order
+ * ```json
+ * {"Status":"OK","goesTo":"FPP &amp; xLights developers and AI service","rows":[{"id":"crash","label":"Send crash reports","item":"crash reports","goesTo":"FPP &amp; xLights developers,<br>AI service","sub":"...","depth":0,"body":"<p>...</p>"}]}
+ * ```
+ */
+function GetCrashDisclosures()
+{
+    global $settings;
+
+    require_once __DIR__ . '/../../privacyTable.inc';
+    $disclosures = privacyDisclosures();
+    $rows = array();
+    foreach (privacyTableRows() as $r) {
+        list($id, $label, $goesTo, $sub, $depth) = $r;
+        if (strpos($id, 'crash') === 0) {
+            $rows[] = array('id' => $id, 'label' => $label, 'goesTo' => $goesTo,
+                'sub' => $sub, 'depth' => $depth, 'body' => $disclosures[$id]['body']);
+        }
+    }
+    // Only reports from a player with an e-mail address set carry one
+    if (!empty($settings['emailAddress'])) {
+        $rows[] = array('id' => 'email', 'label' => $disclosures['email']['title'], 'goesTo' => '',
+            'sub' => '', 'depth' => 1, 'body' => $disclosures['email']['body']);
+    }
+
+    // "Send crash reports" -> "crash reports", "… and include your settings"
+    // -> "your settings"
+    $goesTo = '';
+    foreach ($rows as &$row) {
+        $row['item'] = lcfirst(preg_replace('/^(Send |&hellip; and include )/', '', $row['label']));
+        if ($goesTo === '' && $row['goesTo'] !== '') {
+            $goesTo = preg_replace('/,?\s*<br\s*\/?>\s*/i', ' and ', $row['goesTo']);
+        }
+    }
+    unset($row);
+    return json(array('Status' => 'OK', 'goesTo' => $goesTo, 'rows' => $rows));
+}
+
+/**
  * Upload one locally-kept crash report from the player itself.
  *
  * Deliberately does NOT delete on success.  The caller deletes, through the

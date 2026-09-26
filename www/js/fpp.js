@@ -8853,6 +8853,43 @@ function DeleteFile (dir, row, file, silent = false) {
  */
 function UploadAndDeleteCrashReports (files, options) {
 	options = options || {};
+	// The crash rows of Settings > Privacy, as the privacy page shows them
+	$.ajax({ url: 'api/crashes/disclosures', dataType: 'json' })
+		.done(function (data) {
+			ShowCrashUploadDialog(files, options, data && data.rows ? data.rows : [], data && data.goesTo);
+		})
+		.fail(function () {
+			ShowCrashUploadDialog(files, options, [], '');
+		});
+}
+
+// Each item's (?) shows its Settings > Privacy text in a popover: hover to
+// read, click or tap to keep it open.
+function ShowCrashUploadDialog (files, options, disclosures, goesTo) {
+	// No "and" before the last item: labels such as "configuration and logs"
+	// already have one.  Each item keeps its (?) and comma on the same line.
+	var last = disclosures.length - 1;
+	var disclosureHtml = disclosures.length
+		? '<p>' + (files.length > 1 ? 'They include: ' : 'It includes: ') +
+			disclosures
+			.map(function (d, i) {
+				return (
+					'<span class="text-nowrap"><b>' +
+					d.item +
+					'</b> <i class="fas fa-question-circle crashDisclosureHelp" ' +
+					'tabindex="0" role="button" ' +
+					'aria-label="Explain what this sends" data-idx="' +
+					i +
+					'"></i>' +
+					(i === last ? '.' : ',') +
+					'</span>'
+				);
+			})
+			.join(' ') +
+			'</p>'
+		: '<p>See <a href="settings.php#settings-privacy" target="_blank">Settings ' +
+			'&rsaquo; Privacy</a> for what reports contain and who receives them.</p>';
+
 	var plural = files.length > 1 ? 's' : '';
 	var listHtml =
 		'<ul>' +
@@ -8862,25 +8899,47 @@ function UploadAndDeleteCrashReports (files, options) {
 			})
 			.join('') +
 		'</ul>';
+	var isManual = function (f) {
+		return /-manual\.zip$/.test(f);
+	};
+	var anyManual = files.some(isManual);
 	var sending = false;
+	var allManual = anyManual && files.every(isManual);
 
 	DisplayConfirmationDialog(
 		'confirmUploadCrash',
-		'Upload Crash Report' + plural,
+		'Send ' + (allManual ? 'Manual ' : '') + 'Crash Report' + plural,
 		'Send the following crash report' +
 			plural +
-			' to the FPP developers, then delete ' +
+			(goesTo ? ' to <b>' + goesTo + '</b>' : '') +
+			', then delete ' +
 			(files.length > 1 ? 'them' : 'it') +
 			' from this player?' +
 			listHtml +
-			'<p>A report kept locally is the full bundle: the crash stack and fault ' +
-			'registers, this player&rsquo;s settings, and its configuration files and ' +
-			'logs. Passwords, Wi-Fi passphrases and location were already removed when ' +
-			'the report was written, and the network interface configuration is never ' +
-			'included.</p>' +
-			'<p>If this player cannot reach the internet, your browser will be asked to ' +
-			'send the report instead. Anything that cannot be confirmed as delivered is ' +
-			'kept on the player.</p>',
+			disclosureHtml +
+			(allManual
+				? '<p>' +
+					(files.length > 1 ? 'These reports were' : 'This report was') +
+					' made on request, so ' +
+					(files.length > 1 ? 'they have' : 'it has') +
+					' no crash stack or crash-time playlist state. ' +
+					(files.length > 1 ? 'They are' : 'It is') +
+					' sent even if your crash report setting is &ldquo;Keep locally, do ' +
+					'not send&rdquo; or Disabled.</p>'
+				: anyManual
+					? '<p>A report whose name ends in -manual was made on request, so it ' +
+						'has no crash stack or crash-time playlist state, and is sent even ' +
+						'if your crash report setting is &ldquo;Keep locally, do not ' +
+						'send&rdquo; or Disabled.</p>'
+					: '') +
+			(allManual
+				? ''
+				: '<p>A report written after a crash includes only what the crash report ' +
+					'setting allowed at the time.</p>') +
+			'<p>If this player can&rsquo;t send ' +
+			(files.length > 1 ? 'them' : 'it') +
+			', your browser will, without asking again. Anything not confirmed as ' +
+			'delivered stays on the player.</p>',
 		function () {
 			sending = true;
 			UploadCrashReportsSequentially(files, 0, {
@@ -8891,12 +8950,56 @@ function UploadAndDeleteCrashReports (files, options) {
 		}
 	);
 
+	// Inside the dialog so they scroll and close with it
+	var $dlg = $('#confirmUploadCrash');
+	$dlg.find('.crashDisclosureHelp').each(function () {
+		var d = disclosures[$(this).data('idx')];
+		new bootstrap.Popover(this, {
+			title: d.item.charAt(0).toUpperCase() + d.item.slice(1),
+			content: d.body,
+			html: true,
+			trigger: 'hover focus',
+			// Whichever side has more room: up to the top of the window, or
+			// down to Yes and No
+			placement: function (tip, el) {
+				var r = el.getBoundingClientRect();
+				var below = $dlg.find('.modal-footer')[0].getBoundingClientRect().top - r.bottom;
+				return r.top > below ? 'top' : 'bottom';
+			},
+			fallbackPlacements: [],
+			container: $dlg[0],
+			customClass: 'crash-disclosure-popover'
+		});
+	});
 	// The dialog is reused, so handlers from an earlier call (a double click
 	// opens it twice) are removed first; only this call's run
-	var $dlg = $('#confirmUploadCrash');
 	$dlg.off('.crashUpload');
-	// Closed without Yes: nothing was sent
+	// Keep a popover inside that room, so one kept open by a click covers
+	// neither Yes and No nor runs off the top; its text scrolls instead
+	$dlg.on('shown.bs.popover.crashUpload', '.crashDisclosureHelp', function () {
+		var popover = bootstrap.Popover.getInstance(this);
+		var tip = popover.tip;
+		var body = tip.querySelector('.popover-body');
+		var over =
+			tip.getAttribute('data-popper-placement') === 'top'
+				? 8 - tip.getBoundingClientRect().top
+				: tip.getBoundingClientRect().bottom -
+					($dlg.find('.modal-footer')[0].getBoundingClientRect().top - 8);
+		if (over > 0) {
+			body.style.maxHeight = Math.max(body.offsetHeight - over, 80) + 'px';
+			popover.update();
+		}
+	});
+	// Once the dialog has finished closing: a popover still fading out when
+	// disposed throws when its fade ends
 	$dlg.one('hidden.bs.modal.crashUpload', function () {
+		$dlg.find('.crashDisclosureHelp').each(function () {
+			var p = bootstrap.Popover.getInstance(this);
+			if (p) {
+				p.dispose();
+			}
+		});
+		// Closed without Yes: nothing was sent
 		if (!sending && options.onDone) {
 			options.onDone(null);
 		}
@@ -9037,7 +9140,7 @@ function ReportCrashUploadResults (tally) {
 				tally.uploaded +
 				' report' +
 				(tally.uploaded > 1 ? 's were' : ' was') +
-				' uploaded and removed from this player.</p>'
+				' sent and removed from this player.</p>'
 		);
 	}
 	if (tally.unconfirmed > 0) {
@@ -9054,7 +9157,7 @@ function ReportCrashUploadResults (tally) {
 	}
 	if (tally.failed.length > 0) {
 		parts.push(
-			'<p>The following could not be uploaded and have been kept:</p><ul>' +
+			'<p>The following could not be sent and have been kept:</p><ul>' +
 				tally.failed
 					.map(function (f) {
 						return '<li>' + f.replace(/&/g, '&amp;').replace(/</g, '&lt;') + '</li>';
@@ -9065,9 +9168,9 @@ function ReportCrashUploadResults (tally) {
 	}
 
 	if (tally.failed.length > 0) {
-		DialogError('Crash Report Upload', parts.join(''));
+		DialogError('Send Crash Report', parts.join(''));
 	} else {
-		DialogOK('Crash Report Upload', parts.join(''));
+		DialogOK('Send Crash Report', parts.join(''));
 	}
 }
 
