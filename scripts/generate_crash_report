@@ -507,7 +507,7 @@ with open(sys.argv[2], "w") as f:
 fi
 
 # Create the zip file
-cd "$TEMP_DIR"
+cd "$TEMP_DIR" || exit 1
 zip -r "$OUTPUT_ZIP" . >/dev/null 2>&1
 
 echo "Crash report created: $OUTPUT_ZIP"
