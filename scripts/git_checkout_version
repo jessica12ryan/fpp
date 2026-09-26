@@ -34,7 +34,10 @@ then
 else
     BRANCH=$(cat /home/fpp/media/tmp/gitbranch)
     # Same allow-list as VERS above; the file is world-writable scratch.
-    case "${BRANCH}" in ""|-*|*..*|*[!A-Za-z0-9_./-]*) echo "ERROR: Invalid branch '${BRANCH}'"; exit 1 ;; esac
+    # Empty is allowed here (missing/wiped file after reboot on detached HEAD);
+    # it restores pre-hardening behavior and fails safely at `git checkout ""`
+    # only on the VERS==HEAD path. VERS itself must never be empty (line 21).
+    case "${BRANCH}" in -*|*..*|*[!A-Za-z0-9_./-]*) echo "ERROR: Invalid branch '${BRANCH}'"; exit 1 ;; esac
     echo "Previous Branch: ${BRANCH}"
     echo "Current SHA1  : ${SHA1}"
 fi
