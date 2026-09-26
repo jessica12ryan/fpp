@@ -8826,6 +8826,251 @@ function DeleteFile (dir, row, file, silent = false) {
 		});
 }
 
+/*
+ * Submitting crash reports that were kept on the player.
+ *
+ * fppd writes a report for every crash but only uploads it when ShareCrashData
+ * is 1 or higher. At "Keep locally, do not send" the report is still written --
+ * at the fullest level -- so the operator can submit it by hand; this is that,
+ * without the download-and-email round trip.
+ *
+ * Two routes to the same endpoint, because the player and the browser are not
+ * always on the same side of a working internet connection:
+ *
+ *   1. Ask the player to post it (POST /api/crashes/upload/<file>). Normal case.
+ *   2. If the player says it could not reach the server, fetch the zip from the
+ *      player and post it from the browser instead. That covers the common show
+ *      network: players on an isolated switch, laptop on Wi-Fi with a route out.
+ *
+ * The file is only deleted once an upload is CONFIRMED. Anything that reports
+ * "sent, unconfirmed" is kept -- deleting the only copy of a crash report on a
+ * maybe is how the evidence is lost.
+ *
+ * Here rather than in the file manager so any page can offer it. files are
+ * report names in crashes/; options.onDeleted(file) runs after each confirmed
+ * upload is deleted, options.onDone(tally) after the results are shown, or
+ * options.onDone(null) if the user closes the dialog without sending.
+ */
+function UploadAndDeleteCrashReports (files, options) {
+	options = options || {};
+	var plural = files.length > 1 ? 's' : '';
+	var listHtml =
+		'<ul>' +
+		files
+			.map(function (f) {
+				return '<li>' + f.replace(/&/g, '&amp;').replace(/</g, '&lt;') + '</li>';
+			})
+			.join('') +
+		'</ul>';
+	var sending = false;
+
+	DisplayConfirmationDialog(
+		'confirmUploadCrash',
+		'Upload Crash Report' + plural,
+		'Send the following crash report' +
+			plural +
+			' to the FPP developers, then delete ' +
+			(files.length > 1 ? 'them' : 'it') +
+			' from this player?' +
+			listHtml +
+			'<p>A report kept locally is the full bundle: the crash stack and fault ' +
+			'registers, this player&rsquo;s settings, and its configuration files and ' +
+			'logs. Passwords, Wi-Fi passphrases and location were already removed when ' +
+			'the report was written, and the network interface configuration is never ' +
+			'included.</p>' +
+			'<p>If this player cannot reach the internet, your browser will be asked to ' +
+			'send the report instead. Anything that cannot be confirmed as delivered is ' +
+			'kept on the player.</p>',
+		function () {
+			sending = true;
+			UploadCrashReportsSequentially(files, 0, {
+				uploaded: 0,
+				unconfirmed: 0,
+				failed: []
+			}, options);
+		}
+	);
+
+	// The dialog is reused, so handlers from an earlier call (a double click
+	// opens it twice) are removed first; only this call's run
+	var $dlg = $('#confirmUploadCrash');
+	$dlg.off('.crashUpload');
+	// Closed without Yes: nothing was sent
+	$dlg.one('hidden.bs.modal.crashUpload', function () {
+		if (!sending && options.onDone) {
+			options.onDone(null);
+		}
+	});
+}
+
+// One at a time: these are multi-megabyte zips and a player on a slow uplink
+// should not be asked to run several at once.
+function UploadCrashReportsSequentially (files, idx, tally, options) {
+	if (idx >= files.length) {
+		ReportCrashUploadResults(tally);
+		if (options.onDone) {
+			options.onDone(tally);
+		}
+		return;
+	}
+
+	var file = files[idx];
+	var next = function () {
+		UploadCrashReportsSequentially(files, idx + 1, tally, options);
+	};
+
+	$.ajax({
+		url: 'api/crashes/upload/' + encodeURIComponent(file),
+		type: 'POST',
+		dataType: 'json'
+	})
+		.done(function (data) {
+			if (data && data.Status == 'OK') {
+				tally.uploaded++;
+				DeleteUploadedCrashReport(file, options, next);
+			} else if (data && data.CanRetryFromBrowser) {
+				UploadCrashReportViaBrowser(file, tally, next, options);
+			} else {
+				tally.failed.push(
+					file + ' (' + (data && data.Message ? data.Message : 'upload failed') + ')'
+				);
+				next();
+			}
+		})
+		.fail(function () {
+			// The API call itself did not complete, so we have no word either way
+			// on whether the player has a route out. Try the browser.
+			UploadCrashReportViaBrowser(file, tally, next, options);
+		});
+}
+
+/*
+ * Browser fallback: pull the zip from the player (same origin) and post it to
+ * the crash server ourselves. For a player on an isolated show network whose
+ * operator's laptop has a route out.
+ *
+ * On confirmation, and why there is only ever ONE send attempt:
+ *
+ * A FormData POST is a CORS "simple request" -- multipart/form-data is a
+ * safelisted Content-Type and we set no custom headers -- so the browser sends
+ * it without a preflight and the bytes reach the server either way. Whether we
+ * may read the *response* depends on the server's Access-Control-Allow-Origin;
+ * crashes.falconplayer.com sends one (players live on unguessable LAN
+ * addresses, so it is a wildcard), which is what lets this confirm a delivery
+ * and then delete.
+ *
+ * A rejection therefore means we could not read an answer -- most likely no
+ * route out, but possibly a connection dropped after the bytes left. We cannot
+ * tell, and re-sending to find out would duplicate a report that may already
+ * have arrived. So a rejection is never retried: it is reported as "sent,
+ * unconfirmed" and the file stays on the player.
+ */
+function UploadCrashReportViaBrowser (file, tally, next, options) {
+	$.ajax({ url: 'api/crashes/uploadTarget', dataType: 'json' })
+		.done(function (target) {
+			if (!target || !target.url) {
+				tally.failed.push(file + ' (no upload target configured)');
+				next();
+				return;
+			}
+
+			var reportUrl =
+				'api/file/Crashes/' + encodeURIComponent(file).replaceAll('%2F', '/');
+
+			fetch(reportUrl)
+				.then(function (resp) {
+					if (!resp.ok) {
+						throw new Error('could not read the report from this player');
+					}
+					return resp.blob();
+				})
+				.then(function (blob) {
+					var form = new FormData();
+					form.append(target.field || 'userfile', blob, file);
+					return fetch(target.url, { method: 'POST', body: form });
+				})
+				.then(function (resp) {
+					if (resp.ok) {
+						tally.uploaded++;
+						DeleteUploadedCrashReport(file, options, next);
+					} else {
+						tally.failed.push(file + ' (server returned HTTP ' + resp.status + ')');
+						next();
+					}
+				})
+				.catch(function () {
+					// Either the response was not readable from this origin (the
+					// upload still happened) or the browser has no route out (it did
+					// not). We cannot tell the two apart, and re-sending to find out
+					// would duplicate a report that already arrived. Keep the file and
+					// say plainly that delivery is unconfirmed.
+					tally.unconfirmed++;
+					next();
+				});
+		})
+		.fail(function () {
+			tally.failed.push(file + ' (could not read the upload target)');
+			next();
+		});
+}
+
+// Quietly, like the rest of the upload: a report that stays is only kept, not
+// lost.  next runs once the delete has finished, so onDeleted comes before onDone.
+function DeleteUploadedCrashReport (file, options, next) {
+	$.ajax({
+		url: 'api/file/Crashes/' + encodeURIComponent(file).replaceAll('%2F', '/'),
+		type: 'DELETE'
+	})
+		.done(function (data) {
+			if (data && data.status == 'OK' && options.onDeleted) {
+				options.onDeleted(file);
+			}
+		})
+		.always(next);
+}
+
+function ReportCrashUploadResults (tally) {
+	var parts = [];
+	if (tally.uploaded > 0) {
+		parts.push(
+			'<p>' +
+				tally.uploaded +
+				' report' +
+				(tally.uploaded > 1 ? 's were' : ' was') +
+				' uploaded and removed from this player.</p>'
+		);
+	}
+	if (tally.unconfirmed > 0) {
+		parts.push(
+			'<p>' +
+				tally.unconfirmed +
+				' report' +
+				(tally.unconfirmed > 1 ? 's were' : ' was') +
+				' sent from your browser, but no delivery confirmation came back, so ' +
+				(tally.unconfirmed > 1 ? 'they have' : 'it has') +
+				' been kept on the player. Check your browser&rsquo;s internet ' +
+				'connection; if the report did arrive, sending it again is harmless.</p>'
+		);
+	}
+	if (tally.failed.length > 0) {
+		parts.push(
+			'<p>The following could not be uploaded and have been kept:</p><ul>' +
+				tally.failed
+					.map(function (f) {
+						return '<li>' + f.replace(/&/g, '&amp;').replace(/</g, '&lt;') + '</li>';
+					})
+					.join('') +
+				'</ul>'
+		);
+	}
+
+	if (tally.failed.length > 0) {
+		DialogError('Crash Report Upload', parts.join(''));
+	} else {
+		DialogOK('Crash Report Upload', parts.join(''));
+	}
+}
+
 function SetupSelectableTableRow (info) {
 	$('#' + info.tableName + ' > tbody').on(
 		'mousedown',
